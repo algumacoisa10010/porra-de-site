@@ -13,6 +13,10 @@ intents.message_content = True
 intents.members = True
 intents.voice_states = True
 
+# ================= CONFIG LOGS ================= #
+
+logs_config = {}
+
 bot = commands.Bot(
     command_prefix=",",
     intents=intents,
@@ -290,57 +294,36 @@ async def setupembed(ctx):
 
 voice_channel_247 = None
 
-
 @bot.command()
 @is_moderator()
 async def call(ctx, canal_id: int = None):
 
     global voice_channel_247
 
-    try:
-
-        if canal_id:
-
-            canal = bot.get_channel(canal_id)
-
+    if canal_id:
+        canal = bot.get_channel(canal_id)
+    else:
+        if ctx.author.voice:
+            canal = ctx.author.voice.channel
         else:
+            return await ctx.send("❌ Entre em um canal de voz primeiro.")
 
-            if ctx.author.voice:
-                canal = ctx.author.voice.channel
-            else:
-                return await ctx.send("❌ Você precisa estar em um canal de voz.")
+    if not isinstance(canal, discord.VoiceChannel):
+        return await ctx.send("❌ Canal inválido.")
 
-        if not isinstance(canal, discord.VoiceChannel):
-            return await ctx.send("❌ Canal inválido.")
+    try:
 
         voice_channel_247 = canal
 
         if ctx.voice_client:
             await ctx.voice_client.move_to(canal)
         else:
-            await canal.connect()
+            await canal.connect(reconnect=True)
 
-        await ctx.send(f"🎧 Conectado no canal **{canal.name}** (modo 24/7 ativado)")
+        await ctx.send(f"🎧 Conectado em **{canal.name}** (modo 24/7)")
 
     except Exception as e:
-        await ctx.send("❌ Erro ao conectar.")
-
-
-# ================= DESCONECT ================= #
-
-@bot.command()
-@is_moderator()
-async def desconect(ctx):
-
-    global voice_channel_247
-
-    voice_channel_247 = None
-
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("👋 Saí do canal de voz.")
-    else:
-        await ctx.send("❌ Não estou em nenhum canal.")
+        await ctx.send(f"❌ Erro ao conectar: {e}")
 
 
 # ================= ERROS ================= #
@@ -369,6 +352,125 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.BadArgument):
         await ctx.send("⚠️ Argumento inválido.")
 
+
+# ================= SETUP LOGS ================= #
+
+@bot.command()
+@is_moderator()
+async def setuplogs(ctx, canal: discord.TextChannel, tipo: str):
+
+    if tipo not in ["entrada", "saida"]:
+        return await ctx.send("Use: `,setuplogs #canal entrada` ou `,setuplogs #canal saida`")
+
+    logs_config[ctx.guild.id] = {
+        "channel": canal.id,
+        "color": 0x000000,
+        "modal_data": {
+            "titulo": "👋 Bem-vindo!",
+            "descricao": "{user} entrou no servidor!",
+            "gif": GIF_BANNER,
+            "tipo": tipo
+        }
+    }
+
+    await ctx.send(f"✅ Logs configurados em {canal.mention} para **{tipo}**.")
+
+
+# ================= EVENTOS LOG ================= #
+
+@bot.event
+async def on_member_join(member):
+
+    if member.guild.id not in logs_config:
+        return
+
+    cfg = logs_config[member.guild.id]
+    canal = member.guild.get_channel(cfg["channel"])
+
+    data = cfg["modal_data"]
+
+    desc = data["descricao"].replace("{user}", member.mention)
+
+    embed = discord.Embed(
+        title=data["titulo"],
+        description=desc,
+        color=cfg["color"],
+        timestamp=datetime.utcnow()
+    )
+
+    embed.set_author(name=str(member), icon_url=member.display_avatar.url)
+    embed.set_image(url=data["gif"])
+
+    if data["tipo"] == "entrada":
+        await canal.send(embed=embed)
+
+@bot.event
+async def on_member_remove(member):
+
+    if member.guild.id not in logs_config:
+        return
+
+    cfg = logs_config[member.guild.id]
+    canal = member.guild.get_channel(cfg["channel"])
+
+    data = cfg["modal_data"]
+
+    desc = data["descricao"].replace("{user}", member.mention)
+
+    embed = discord.Embed(
+        title=data["titulo"],
+        description=desc,
+        color=cfg["color"],
+        timestamp=datetime.utcnow()
+    )
+
+    embed.set_author(name=str(member), icon_url=member.display_avatar.url)
+    embed.set_image(url=data["gif"])
+
+    if data["tipo"] == "saída":
+        await canal.send(embed=embed)
+
+
+# ================= TESTLOG ================= #
+
+@bot.command()
+@is_moderator()
+async def testlog(ctx, tipo: str = "entrada"):
+
+    guild_id = ctx.guild.id
+
+    if guild_id not in logs_config:
+        return await ctx.send("❌ Logs ainda não configurados. Use `,setuplogs` primeiro.")
+
+    cfg = logs_config[guild_id]
+    canal = ctx.guild.get_channel(cfg["channel"])
+
+    if not canal:
+        return await ctx.send("❌ Canal de logs não encontrado.")
+
+    data = cfg["modal_data"]
+
+    descricao = data["descricao"].replace("{user}", ctx.author.mention)
+
+    embed = discord.Embed(
+        title=data["titulo"],
+        description=descricao,
+        color=cfg["color"],
+        timestamp=datetime.utcnow()
+    )
+
+    embed.set_author(
+        name=str(ctx.author),
+        icon_url=ctx.author.display_avatar.url
+    )
+
+    embed.set_image(url=data["gif"])
+
+    await canal.send(embed=embed)
+
+    await ctx.send(f"✅ Mensagem de teste enviada em {canal.mention}")
+
+
 # ================= START ================= #
 
 token = os.getenv("TOKEN")
@@ -379,6 +481,7 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+
 
 
 

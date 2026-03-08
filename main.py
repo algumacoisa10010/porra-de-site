@@ -221,8 +221,8 @@ async def setuplogs(ctx, canal: discord.TextChannel, tipo: str):
         "channel": canal.id,
         "color": 0x000000,
         "modal_data": {
-            "titulo": "📢 Log do Servidor",
-            "descricao": "{user} entrou no servidor!",
+            "titulo": "Vitrine Games BR",
+            "descricao": "👋Bem vindo(a)! Por favor {user} lembre-se de seguir todas as diretrizes do Servidor e da plataforma!",
             "gif": GIF_BANNER,
             "tipo": tipo
         }
@@ -358,5 +358,6 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+
 
 

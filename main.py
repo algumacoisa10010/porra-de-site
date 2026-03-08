@@ -6,6 +6,8 @@ import difflib
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+# ================= CONFIG ================= #
+
 GIF_BANNER = "https://media.discordapp.net/attachments/1479835854435520607/1480074101304463473/standard_7.gif"
 
 intents = discord.Intents.default()
@@ -19,9 +21,8 @@ bot = commands.Bot(
     help_command=None
 )
 
-# ================= CONFIG LOGS ================= #
-
-logs_config = {}
+# Armazenamento simples em memória (para produção, salvar em JSON/DB)
+logs_config = {}  # { guild_id: { "channel": int, "color": int, "modal_data": {titulo, descricao, gif, tipo} } }
 
 # ================= PERMISSÃO MOD ================= #
 
@@ -40,13 +41,11 @@ spam_tracker = defaultdict(list)
 
 @bot.event
 async def on_message(message):
-
     if message.author.bot:
         return
 
     now = datetime.now()
     spam_tracker[message.author.id].append(now)
-
     spam_tracker[message.author.id] = [
         t for t in spam_tracker[message.author.id]
         if now - t < timedelta(seconds=5)
@@ -68,25 +67,20 @@ async def on_message(message):
 
 @bot.event
 async def on_ready():
-    print(f"Bot online {bot.user}")
+    print(f"Bot online como {bot.user}")
 
 # ================= HELP ================= #
 
 @bot.command()
 @is_moderator()
 async def help(ctx):
-
     embed = discord.Embed(
         title="⚙️ Painel Oficial de Moderação",
-        description="Sistema avançado com proteção e controle.",
+        description="Sistema de moderação, embeds, logs e voz.",
         color=0x000000
     )
 
-    embed.set_author(
-        name=bot.user.name,
-        icon_url=bot.user.display_avatar.url
-    )
-
+    embed.set_author(name=bot.user.name, icon_url=bot.user.display_avatar.url)
     embed.set_thumbnail(url=bot.user.display_avatar.url)
     embed.set_image(url=GIF_BANNER)
 
@@ -106,13 +100,18 @@ async def help(ctx):
 
     embed.add_field(
         name="🛠️ Utilidades",
-        value="`,msg texto` → Bot envia mensagem personalizada.",
+        value=(
+            "`,msg texto`\n"
+            "`,setupembed`\n"
+            "`,setuplogs`\n"
+            "`,testlog`"
+        ),
         inline=False
     )
 
     embed.add_field(
-        name=" Sistema",
-        value="Anti-Spam automático ativo.",
+        name="🎧 Voz",
+        value="`,call` (entra no seu canal)\n`,call ID`\n`,desconect`",
         inline=False
     )
 
@@ -150,7 +149,6 @@ async def clear(ctx, amount: int):
 @bot.command()
 @is_moderator()
 async def mute(ctx, member: discord.Member, tempo: str):
-
     try:
         unidade = tempo[-1]
         valor = int(tempo[:-1])
@@ -160,10 +158,8 @@ async def mute(ctx, member: discord.Member, tempo: str):
         return await ctx.send("⚠️ Use formato correto: 10s, 5m ou 1h")
 
     role = discord.utils.get(ctx.guild.roles, name="Muted")
-
     if not role:
         role = await ctx.guild.create_role(name="Muted")
-
         for channel in ctx.guild.channels:
             await channel.set_permissions(role, send_messages=False, speak=False)
 
@@ -179,9 +175,7 @@ async def mute(ctx, member: discord.Member, tempo: str):
 @bot.command()
 @is_moderator()
 async def unmute(ctx, member: discord.Member):
-
     role = discord.utils.get(ctx.guild.roles, name="Muted")
-
     if role and role in member.roles:
         await member.remove_roles(role)
         await ctx.send(f"🔊 {member.mention} foi desmutado.")
@@ -208,43 +202,149 @@ async def msg(ctx, *, texto):
     await ctx.message.delete()
     await ctx.send(texto)
 
-# ================= SETUP LOGS ================= #
+# ================= SETUP EMBED ================= #
+
+class EmbedModal(discord.ui.Modal, title="Criar Embed"):
+    titulo = discord.ui.TextInput(label="Título")
+    descricao = discord.ui.TextInput(label="Descrição", style=discord.TextStyle.paragraph)
+    banner = discord.ui.TextInput(label="URL do Banner")
+
+    def __init__(self, cor):
+        super().__init__()
+        self.cor = cor
+
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=self.titulo.value,
+            description=self.descricao.value,
+            color=self.cor
+        )
+        embed.set_image(url=self.banner.value)
+
+        await interaction.response.send_message("✅ Embed criada!", ephemeral=True)
+        await interaction.channel.send(embed=embed)
+
+class CorSelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Preto", emoji="⚫", value="preto"),
+            discord.SelectOption(label="Azul", emoji="🔵", value="azul"),
+            discord.SelectOption(label="Verde", emoji="🟢", value="verde"),
+            discord.SelectOption(label="Vermelho", emoji="🔴", value="vermelho"),
+            discord.SelectOption(label="Roxo", emoji="🟣", value="roxo")
+        ]
+        super().__init__(placeholder="Escolha a cor da embed", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        cores = {
+            "preto": 0x000000,
+            "azul": discord.Color.blue(),
+            "verde": discord.Color.green(),
+            "vermelho": discord.Color.red(),
+            "roxo": discord.Color.purple()
+        }
+        await interaction.response.send_modal(EmbedModal(cores[self.values[0]]))
+
+class SetupView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+        self.add_item(CorSelect())
 
 @bot.command()
 @is_moderator()
-async def setuplogs(ctx, canal: discord.TextChannel, tipo: str):
+async def setupembed(ctx):
+    embed = discord.Embed(
+        title="🛠 Criador de Embed",
+        description="Selecione a cor da embed.",
+        color=0x000000
+    )
+    await ctx.send(embed=embed, view=SetupView())
 
-    if tipo not in ["entrada", "saida"]:
-        return await ctx.send("Use: `,setuplogs #canal entrada` ou `,setuplogs #canal saida`")
+# ================= SETUP LOGS ================= #
 
-    logs_config[ctx.guild.id] = {
-        "channel": canal.id,
-        "color": 0x000000,
-        "modal_data": {
-            "titulo": "Vitrine Games BR",
-            "descricao": "👋Bem vindo(a)! Por favor {user} lembre-se de seguir todas as diretrizes do Servidor e da plataforma!",
-            "gif": GIF_BANNER,
-            "tipo": tipo
+class LogsModal(discord.ui.Modal, title="Configurar Logs"):
+    titulo = discord.ui.TextInput(label="Título")
+    descricao = discord.ui.TextInput(
+        label="Descrição (use {user})",
+        style=discord.TextStyle.paragraph
+    )
+    gif = discord.ui.TextInput(label="URL do GIF")
+    canal = discord.ui.TextInput(label="ID do canal")
+    tipo = discord.ui.TextInput(label="Tipo: entrada ou saida")
+
+    def __init__(self, cor):
+        super().__init__()
+        self.cor = cor
+
+    async def on_submit(self, interaction: discord.Interaction):
+        guild_id = interaction.guild.id
+
+        try:
+            canal_id = int(self.canal.value)
+        except:
+            return await interaction.response.send_message("❌ ID inválido.", ephemeral=True)
+
+        logs_config[guild_id] = {
+            "channel": canal_id,
+            "color": self.cor,
+            "modal_data": {
+                "titulo": self.titulo.value,
+                "descricao": self.descricao.value,
+                "gif": self.gif.value,
+                "tipo": self.tipo.value.lower()
+            }
         }
-    }
 
-    await ctx.send(f"✅ Logs configurados em {canal.mention} para **{tipo}**.")
+        await interaction.response.send_message("✅ Logs configurados!", ephemeral=True)
+
+class LogsColorSelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Preto", value="preto", emoji="⚫"),
+            discord.SelectOption(label="Azul", value="azul", emoji="🔵"),
+            discord.SelectOption(label="Verde", value="verde", emoji="🟢"),
+            discord.SelectOption(label="Vermelho", value="vermelho", emoji="🔴"),
+            discord.SelectOption(label="Roxo", value="roxo", emoji="🟣"),
+        ]
+        super().__init__(placeholder="Escolha a cor da embed", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        cores = {
+            "preto": 0x000000,
+            "azul": discord.Color.blue(),
+            "verde": discord.Color.green(),
+            "vermelho": discord.Color.red(),
+            "roxo": discord.Color.purple()
+        }
+        await interaction.response.send_modal(LogsModal(cores[self.values[0]]))
+
+class LogsView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=120)
+        self.add_item(LogsColorSelect())
+
+@bot.command()
+@is_moderator()
+async def setuplogs(ctx):
+    embed = discord.Embed(
+        title="⚙️ Configuração de Logs",
+        description="Escolha a cor e depois preencha o formulário.\nUse `{user}` na descrição.",
+        color=0x000000
+    )
+    await ctx.send(embed=embed, view=LogsView())
 
 # ================= EVENTOS LOG ================= #
 
 @bot.event
 async def on_member_join(member):
-
     if member.guild.id not in logs_config:
         return
 
     cfg = logs_config[member.guild.id]
-
     if cfg["modal_data"]["tipo"] != "entrada":
         return
 
     canal = member.guild.get_channel(cfg["channel"])
-
     desc = cfg["modal_data"]["descricao"].replace("{user}", member.mention)
 
     embed = discord.Embed(
@@ -261,17 +361,14 @@ async def on_member_join(member):
 
 @bot.event
 async def on_member_remove(member):
-
     if member.guild.id not in logs_config:
         return
 
     cfg = logs_config[member.guild.id]
-
     if cfg["modal_data"]["tipo"] != "saida":
         return
 
     canal = member.guild.get_channel(cfg["channel"])
-
     desc = cfg["modal_data"]["descricao"].replace("{user}", member.mention)
 
     embed = discord.Embed(
@@ -291,13 +388,11 @@ async def on_member_remove(member):
 @bot.command()
 @is_moderator()
 async def testlog(ctx):
-
     if ctx.guild.id not in logs_config:
         return await ctx.send("❌ Use `,setuplogs` primeiro.")
 
     cfg = logs_config[ctx.guild.id]
     canal = ctx.guild.get_channel(cfg["channel"])
-
     desc = cfg["modal_data"]["descricao"].replace("{user}", ctx.author.mention)
 
     embed = discord.Embed(
@@ -313,40 +408,55 @@ async def testlog(ctx):
     await canal.send(embed=embed)
     await ctx.send("✅ Log de teste enviado.")
 
-# ================= CALL ================= #
+# ================= VOZ ================= #
 
 @bot.command()
 @is_moderator()
 async def call(ctx, canal_id: int = None):
-
     if canal_id:
         canal = bot.get_channel(canal_id)
-
         if canal is None:
             return await ctx.send("❌ Canal não encontrado.")
-
     else:
         if ctx.author.voice is None:
-            return await ctx.send("❌ Entre em um canal de voz primeiro.")
-
+            return await ctx.send("❌ Entre em um canal de voz.")
         canal = ctx.author.voice.channel
 
-    if not isinstance(canal, discord.VoiceChannel):
-        return await ctx.send("❌ Esse canal não é de voz.")
-
     try:
-
-        if ctx.voice_client is not None:
+        if ctx.voice_client:
             await ctx.voice_client.move_to(canal)
-
         else:
             await canal.connect(timeout=30, reconnect=True)
 
         await ctx.send(f"🎧 Conectado em **{canal.name}**")
-
     except Exception as e:
         await ctx.send(f"❌ Erro ao conectar: `{e}`")
-        
+
+@bot.command()
+@is_moderator()
+async def desconect(ctx):
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("👋 Saí do canal de voz.")
+    else:
+        await ctx.send("❌ Não estou em nenhum canal.")
+
+# ================= ERROS ================= #
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        comandos = [c.name for c in bot.commands]
+        sugestao = difflib.get_close_matches(ctx.invoked_with, comandos, n=1, cutoff=0.5)
+        if sugestao:
+            await ctx.send(f"Você quis dizer `,{sugestao[0]}` ❓")
+        return
+
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("⚠️ Argumento faltando.")
+
+    if isinstance(error, commands.BadArgument):
+        await ctx.send("⚠️ Argumento inválido.")
 
 # ================= START ================= #
 
@@ -358,6 +468,3 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
-
-
-

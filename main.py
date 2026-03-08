@@ -315,16 +315,18 @@ async def testlog(ctx):
 
 # ================= CALL ================= #
 
-voice_channel_247 = None
-
 @bot.command()
 @is_moderator()
-async def call(ctx):
+async def call(ctx, canal_id: int = None):
 
-    if not ctx.author.voice:
-        return await ctx.send("❌ Entre em um canal de voz primeiro.")
-
-    canal = ctx.author.voice.channel
+    if canal_id:
+        canal = bot.get_channel(canal_id)
+        if not canal:
+            return await ctx.send("❌ Canal não encontrado.")
+    else:
+        if not ctx.author.voice:
+            return await ctx.send("❌ Entre em um canal de voz.")
+        canal = ctx.author.voice.channel
 
     try:
 
@@ -336,7 +338,7 @@ async def call(ctx):
         await ctx.send(f"🎧 Conectado em **{canal.name}**")
 
     except Exception as e:
-        await ctx.send(f"❌ Erro: {e}")
+        await ctx.send(f"❌ Erro ao conectar: {e}")
 
 # ================= DESCONECT ================= #
 
@@ -360,3 +362,4 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+

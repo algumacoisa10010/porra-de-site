@@ -6,22 +6,22 @@ import difflib
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-GIF_BANNER = "https://media.discordapp.net/attachments/1479835854435520607/1480074101304463473/standard_7.gif?ex=69ae59ec&is=69ad086c&hm=f83037286c5f5a6d84d989a0bbd98e7189f1412c7e208988b319a67f94fab11a&=&width=928&height=522"
+GIF_BANNER = "https://media.discordapp.net/attachments/1479835854435520607/1480074101304463473/standard_7.gif"
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.voice_states = True
 
-# ================= CONFIG LOGS ================= #
-
-logs_config = {}
-
 bot = commands.Bot(
     command_prefix=",",
     intents=intents,
     help_command=None
 )
+
+# ================= CONFIG LOGS ================= #
+
+logs_config = {}
 
 # ================= PERMISSÃO MOD ================= #
 
@@ -88,7 +88,6 @@ async def help(ctx):
     )
 
     embed.set_thumbnail(url=bot.user.display_avatar.url)
-
     embed.set_image(url=GIF_BANNER)
 
     embed.add_field(
@@ -118,7 +117,7 @@ async def help(ctx):
     )
 
     embed.set_footer(
-        text="Vitrine Games BR • 2026 | Maded by patrocinadobet1",
+        text="Vitrine Games BR • 2026 | Made by patrocinadobet1",
         icon_url=bot.user.display_avatar.url
     )
 
@@ -209,150 +208,6 @@ async def msg(ctx, *, texto):
     await ctx.message.delete()
     await ctx.send(texto)
 
-# ================= SETUP EMBED ================= #
-
-class EmbedModal(discord.ui.Modal, title="Criar Embed"):
-
-    titulo = discord.ui.TextInput(label="Título")
-    descricao = discord.ui.TextInput(
-        label="Descrição",
-        style=discord.TextStyle.paragraph
-    )
-    banner = discord.ui.TextInput(label="URL do Banner")
-
-    def __init__(self, cor):
-        super().__init__()
-        self.cor = cor
-
-    async def on_submit(self, interaction: discord.Interaction):
-
-        embed = discord.Embed(
-            title=self.titulo.value,
-            description=self.descricao.value,
-            color=self.cor
-        )
-
-        embed.set_image(url=self.banner.value)
-
-        await interaction.response.send_message(
-            "✅ Embed criada!",
-            ephemeral=True
-        )
-
-        await interaction.channel.send(embed=embed)
-
-class CorSelect(discord.ui.Select):
-
-    def __init__(self):
-
-        options = [
-            discord.SelectOption(label="Preto", emoji="⚫", value="preto"),
-            discord.SelectOption(label="Azul", emoji="🔵", value="azul"),
-            discord.SelectOption(label="Verde", emoji="🟢", value="verde"),
-            discord.SelectOption(label="Vermelho", emoji="🔴", value="vermelho"),
-            discord.SelectOption(label="Roxo", emoji="🟣", value="roxo")
-        ]
-
-        super().__init__(
-            placeholder="Escolha a cor da embed",
-            options=options
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-
-        cores = {
-            "preto": 0x000000,
-            "azul": discord.Color.blue(),
-            "verde": discord.Color.green(),
-            "vermelho": discord.Color.red(),
-            "roxo": discord.Color.purple()
-        }
-
-        await interaction.response.send_modal(
-            EmbedModal(cores[self.values[0]])
-        )
-
-class SetupView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=60)
-        self.add_item(CorSelect())
-
-@bot.command()
-@is_moderator()
-async def setupembed(ctx):
-
-    embed = discord.Embed(
-        title="🛠 Criador de Embed",
-        description="Selecione a cor da embed.",
-        color=0x000000
-    )
-
-    await ctx.send(embed=embed, view=SetupView())
-
-
-# ================= CALL 24/7 ================= #
-
-voice_channel_247 = None
-
-@bot.command()
-@is_moderator()
-async def call(ctx, canal_id: int = None):
-
-    global voice_channel_247
-
-    if canal_id:
-        canal = bot.get_channel(canal_id)
-    else:
-        if ctx.author.voice:
-            canal = ctx.author.voice.channel
-        else:
-            return await ctx.send("❌ Entre em um canal de voz primeiro.")
-
-    if not isinstance(canal, discord.VoiceChannel):
-        return await ctx.send("❌ Canal inválido.")
-
-    try:
-
-        voice_channel_247 = canal
-
-        if ctx.voice_client:
-            await ctx.voice_client.move_to(canal)
-        else:
-            await canal.connect(reconnect=True)
-
-        await ctx.send(f"🎧 Conectado em **{canal.name}** (modo 24/7)")
-
-    except Exception as e:
-        await ctx.send(f"❌ Erro ao conectar: {e}")
-
-
-# ================= ERROS ================= #
-
-@bot.event
-async def on_command_error(ctx, error):
-
-    if isinstance(error, commands.CommandNotFound) and ctx.author.guild_permissions.manage_messages:
-
-        comandos = [c.name for c in bot.commands]
-
-        sugestao = difflib.get_close_matches(
-            ctx.invoked_with,
-            comandos,
-            n=1,
-            cutoff=0.5
-        )
-
-        if sugestao:
-            await ctx.send(f"Você quis dizer `,{sugestao[0]}` ❓")
-        return
-
-    if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send("⚠️ Argumento faltando.")
-
-    if isinstance(error, commands.BadArgument):
-        await ctx.send("⚠️ Argumento inválido.")
-
-
 # ================= SETUP LOGS ================= #
 
 @bot.command()
@@ -366,7 +221,7 @@ async def setuplogs(ctx, canal: discord.TextChannel, tipo: str):
         "channel": canal.id,
         "color": 0x000000,
         "modal_data": {
-            "titulo": "👋 Bem-vindo!",
+            "titulo": "📢 Log do Servidor",
             "descricao": "{user} entrou no servidor!",
             "gif": GIF_BANNER,
             "tipo": tipo
@@ -374,7 +229,6 @@ async def setuplogs(ctx, canal: discord.TextChannel, tipo: str):
     }
 
     await ctx.send(f"✅ Logs configurados em {canal.mention} para **{tipo}**.")
-
 
 # ================= EVENTOS LOG ================= #
 
@@ -385,24 +239,25 @@ async def on_member_join(member):
         return
 
     cfg = logs_config[member.guild.id]
+
+    if cfg["modal_data"]["tipo"] != "entrada":
+        return
+
     canal = member.guild.get_channel(cfg["channel"])
 
-    data = cfg["modal_data"]
-
-    desc = data["descricao"].replace("{user}", member.mention)
+    desc = cfg["modal_data"]["descricao"].replace("{user}", member.mention)
 
     embed = discord.Embed(
-        title=data["titulo"],
+        title=cfg["modal_data"]["titulo"],
         description=desc,
         color=cfg["color"],
         timestamp=datetime.utcnow()
     )
 
     embed.set_author(name=str(member), icon_url=member.display_avatar.url)
-    embed.set_image(url=data["gif"])
+    embed.set_image(url=cfg["modal_data"]["gif"])
 
-    if data["tipo"] == "entrada":
-        await canal.send(embed=embed)
+    await canal.send(embed=embed)
 
 @bot.event
 async def on_member_remove(member):
@@ -411,65 +266,89 @@ async def on_member_remove(member):
         return
 
     cfg = logs_config[member.guild.id]
+
+    if cfg["modal_data"]["tipo"] != "saida":
+        return
+
     canal = member.guild.get_channel(cfg["channel"])
 
-    data = cfg["modal_data"]
-
-    desc = data["descricao"].replace("{user}", member.mention)
+    desc = cfg["modal_data"]["descricao"].replace("{user}", member.mention)
 
     embed = discord.Embed(
-        title=data["titulo"],
+        title=cfg["modal_data"]["titulo"],
         description=desc,
         color=cfg["color"],
         timestamp=datetime.utcnow()
     )
 
     embed.set_author(name=str(member), icon_url=member.display_avatar.url)
-    embed.set_image(url=data["gif"])
+    embed.set_image(url=cfg["modal_data"]["gif"])
 
-    if data["tipo"] == "saída":
-        await canal.send(embed=embed)
-
+    await canal.send(embed=embed)
 
 # ================= TESTLOG ================= #
 
 @bot.command()
 @is_moderator()
-async def testlog(ctx, tipo: str = "entrada"):
+async def testlog(ctx):
 
-    guild_id = ctx.guild.id
+    if ctx.guild.id not in logs_config:
+        return await ctx.send("❌ Use `,setuplogs` primeiro.")
 
-    if guild_id not in logs_config:
-        return await ctx.send("❌ Logs ainda não configurados. Use `,setuplogs` primeiro.")
-
-    cfg = logs_config[guild_id]
+    cfg = logs_config[ctx.guild.id]
     canal = ctx.guild.get_channel(cfg["channel"])
 
-    if not canal:
-        return await ctx.send("❌ Canal de logs não encontrado.")
-
-    data = cfg["modal_data"]
-
-    descricao = data["descricao"].replace("{user}", ctx.author.mention)
+    desc = cfg["modal_data"]["descricao"].replace("{user}", ctx.author.mention)
 
     embed = discord.Embed(
-        title=data["titulo"],
-        description=descricao,
+        title=cfg["modal_data"]["titulo"],
+        description=desc,
         color=cfg["color"],
         timestamp=datetime.utcnow()
     )
 
-    embed.set_author(
-        name=str(ctx.author),
-        icon_url=ctx.author.display_avatar.url
-    )
-
-    embed.set_image(url=data["gif"])
+    embed.set_author(name=str(ctx.author), icon_url=ctx.author.display_avatar.url)
+    embed.set_image(url=cfg["modal_data"]["gif"])
 
     await canal.send(embed=embed)
+    await ctx.send("✅ Log de teste enviado.")
 
-    await ctx.send(f"✅ Mensagem de teste enviada em {canal.mention}")
+# ================= CALL ================= #
 
+voice_channel_247 = None
+
+@bot.command()
+@is_moderator()
+async def call(ctx):
+
+    if not ctx.author.voice:
+        return await ctx.send("❌ Entre em um canal de voz primeiro.")
+
+    canal = ctx.author.voice.channel
+
+    try:
+
+        if ctx.voice_client:
+            await ctx.voice_client.move_to(canal)
+        else:
+            await canal.connect()
+
+        await ctx.send(f"🎧 Conectado em **{canal.name}**")
+
+    except Exception as e:
+        await ctx.send(f"❌ Erro: {e}")
+
+# ================= DESCONECT ================= #
+
+@bot.command()
+@is_moderator()
+async def desconect(ctx):
+
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("👋 Saí do canal de voz.")
+    else:
+        await ctx.send("❌ Não estou em nenhum canal.")
 
 # ================= START ================= #
 
@@ -481,8 +360,3 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
-
-
-
-
-

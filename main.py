@@ -321,36 +321,32 @@ async def call(ctx, canal_id: int = None):
 
     if canal_id:
         canal = bot.get_channel(canal_id)
-        if not canal:
+
+        if canal is None:
             return await ctx.send("❌ Canal não encontrado.")
+
     else:
-        if not ctx.author.voice:
-            return await ctx.send("❌ Entre em um canal de voz.")
+        if ctx.author.voice is None:
+            return await ctx.send("❌ Entre em um canal de voz primeiro.")
+
         canal = ctx.author.voice.channel
+
+    if not isinstance(canal, discord.VoiceChannel):
+        return await ctx.send("❌ Esse canal não é de voz.")
 
     try:
 
-        if ctx.voice_client:
+        if ctx.voice_client is not None:
             await ctx.voice_client.move_to(canal)
+
         else:
-            await canal.connect()
+            await canal.connect(timeout=30, reconnect=True)
 
         await ctx.send(f"🎧 Conectado em **{canal.name}**")
 
     except Exception as e:
-        await ctx.send(f"❌ Erro ao conectar: {e}")
-
-# ================= DESCONECT ================= #
-
-@bot.command()
-@is_moderator()
-async def desconect(ctx):
-
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("👋 Saí do canal de voz.")
-    else:
-        await ctx.send("❌ Não estou em nenhum canal.")
+        await ctx.send(f"❌ Erro ao conectar: `{e}`")
+        
 
 # ================= START ================= #
 
@@ -362,4 +358,5 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+
 

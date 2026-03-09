@@ -434,7 +434,7 @@ async def call(ctx, canal_id: int = None):
     except Exception as e:
         await ctx.send(f"❌ Erro ao conectar: `{e}`")
 
-vc.play(source)
+
 # ================= ERROS ================= #
 
 @bot.event
@@ -462,6 +462,7 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+
 
 
 

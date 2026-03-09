@@ -413,33 +413,57 @@ async def testlog(ctx):
 @bot.command()
 @is_moderator()
 async def call(ctx, canal_id: int = None):
+
+    # pegar canal
     if canal_id:
         canal = bot.get_channel(canal_id)
-        if canal is None:
-            return await ctx.send("❌ Canal não encontrado.")
+
+        if canal is None or not isinstance(canal, discord.VoiceChannel):
+            return await ctx.send("❌ Canal de voz não encontrado.")
+
     else:
         if ctx.author.voice is None:
-            return await ctx.send("❌ Entre em um canal de voz.")
+            return await ctx.send("❌ Você precisa estar em um canal de voz.")
+
         canal = ctx.author.voice.channel
 
     try:
-        if ctx.voice_client:
-            await ctx.voice_client.move_to(canal)
-        else:
-            await canal.connect(timeout=30, reconnect=True)
 
-        await ctx.send(f"🎧 Conectado em **{canal.name}**")
+        # se já estiver conectado
+        if ctx.voice_client:
+
+            # se já estiver no mesmo canal
+            if ctx.voice_client.channel.id == canal.id:
+                return await ctx.send(f"✅ Já estou conectado em **{canal.name}**")
+
+            # mover para outro canal
+            await ctx.voice_client.move_to(canal)
+            await ctx.send(f"🔁 Movido para **{canal.name}**")
+
+        else:
+            # conectar
+            await canal.connect(timeout=60, reconnect=True)
+            await ctx.send(f"🎧 Conectado em **{canal.name}**")
+
     except Exception as e:
-        await ctx.send(f"❌ Erro ao conectar: `{e}`")
+        await ctx.send(f"❌ Erro ao conectar:\n```{e}```")
+
 
 @bot.command()
 @is_moderator()
 async def desconect(ctx):
+
     if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("👋 Saí do canal de voz.")
+
+        try:
+            await ctx.voice_client.disconnect()
+            await ctx.send("👋 Desconectado do canal de voz.")
+
+        except Exception as e:
+            await ctx.send(f"❌ Erro ao sair:\n```{e}```")
+
     else:
-        await ctx.send("❌ Não estou em nenhum canal.")
+        await ctx.send("❌ Não estou em nenhum canal de voz.")
 
 # ================= ERROS ================= #
 
@@ -468,3 +492,4 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+

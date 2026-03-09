@@ -410,12 +410,29 @@ async def testlog(ctx):
 
 # ================= VOZ ================= #
 
-vc = await canal.connect()
+@bot.command()
+@is_moderator()
+async def call(ctx, canal_id: int = None):
 
-source = discord.FFmpegPCMAudio(
-    "silence.mp3",
-    executable="ffmpeg"
-)
+    if canal_id:
+        canal = bot.get_channel(canal_id)
+        if canal is None:
+            return await ctx.send("❌ Canal não encontrado.")
+    else:
+        if ctx.author.voice is None:
+            return await ctx.send("❌ Entre em um canal de voz.")
+        canal = ctx.author.voice.channel
+
+    try:
+        if ctx.voice_client:
+            await ctx.voice_client.move_to(canal)
+        else:
+            vc = await canal.connect()
+
+        await ctx.send(f"🎧 Conectado em **{canal.name}**")
+
+    except Exception as e:
+        await ctx.send(f"❌ Erro ao conectar: `{e}`")
 
 vc.play(source)
 # ================= ERROS ================= #
@@ -445,6 +462,7 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+
 
 
 

@@ -410,50 +410,14 @@ async def testlog(ctx):
 
 # ================= VOZ ================= #
 
-import discord
-from discord.ext import commands
+vc = await canal.connect()
 
-@bot.command()
-@is_moderator()
-async def call(ctx, canal_id: int = None):
+source = discord.FFmpegPCMAudio(
+    "silence.mp3",
+    executable="ffmpeg"
+)
 
-    if canal_id:
-        canal = bot.get_channel(canal_id)
-        if canal is None or not isinstance(canal, discord.VoiceChannel):
-            return await ctx.send("❌ Canal de voz não encontrado.")
-    else:
-        if ctx.author.voice is None:
-            return await ctx.send("❌ Entre em um canal de voz.")
-        canal = ctx.author.voice.channel
-
-    try:
-
-        if ctx.voice_client:
-            await ctx.voice_client.move_to(canal)
-        else:
-            vc = await canal.connect(reconnect=True)
-
-            # toca áudio silencioso para não cair da call
-            source = discord.FFmpegPCMAudio(
-                "https://cdn.discordapp.com/attachments/1135581460830865508/1135581461246208010/silence.mp3"
-            )
-            vc.play(source)
-
-        await ctx.send(f"🎧 Conectado em **{canal.name}**")
-
-    except Exception as e:
-        await ctx.send(f"❌ Erro ao conectar: `{e}`")
-
-
-@bot.command()
-@is_moderator()
-async def desconect(ctx):
-
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("👋 Saí do canal de voz.")
-    else:
-        await ctx.send("❌ Não estou em nenhum canal.")
+vc.play(source)
 # ================= ERROS ================= #
 
 @bot.event
@@ -481,6 +445,7 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+
 
 
 

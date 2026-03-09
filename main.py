@@ -410,7 +410,6 @@ async def testlog(ctx):
 
 # ================= VOZ ================= #
 
-discord.opus.load_opus("libopus.so.0")
 @bot.command()
 @is_moderator()
 async def call(ctx, canal_id: int = None):
@@ -493,5 +492,6 @@ else:
     print("TOKEN OK")
 
 bot.run(token)
+
 
 
